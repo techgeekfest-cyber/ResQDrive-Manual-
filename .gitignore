@@ -1,0 +1,23 @@
+# Model weights (trained in Colab, not committed -- see docs/PHASE1.md)
+*.pt
+*.pth
+*.onnx
+ai/models/**/*.pt
+
+# Training run outputs / dataset downloads (large, reproducible via notebooks)
+ai/training/**/dataset/
+ai/training/**/runs/
+runs/
+*.zip
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# OS
+.DS_Store
