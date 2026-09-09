@@ -101,6 +101,32 @@ despite the notebook believing it was preserving it. Fixed by normalizing
 `assert len(test_files) > 0` guard so this class of bug fails loudly instead
 of silently if it ever recurs.
 
+**Bug found and fixed after a real Colab run (flood/fallen_tree path
+resolution):** running `flood_training.ipynb` in Colab surfaced that Step 3
+reported `train: 0 images`, `val: 0 images`, `test: 0 images`, resolving to
+paths like `/content/flood-detection-1/../train/images` -- one directory
+above where the images actually live
+(`/content/flood-detection-1/train/images`, confirmed 688/196/98 images by
+direct inspection). Cause: Roboflow's exported `data.yaml` declares split
+paths with a leading `../` (e.g. `test: ../test/images`), and the notebook
+was joining that literal string onto `DATASET_DIR`, landing one level too
+high. `fallen_tree_training.ipynb` downloads via the same Roboflow YOLOv8
+export pipeline and had the identical bug (pothole builds its own
+self-authored `data.yaml` with a `path:` key and was not affected). Fixed in
+both notebooks with a `resolve_split_dir()` helper that tries the literal
+declared path first, then the same path with any leading `../`/`./`
+stripped, and uses whichever candidate is an actual existing directory --
+plus an explicit `assert os.path.isdir(...)` per split so an unresolvable
+directory fails loudly in Step 3 instead of silently reporting 0 images.
+The same resolved directories (`SPLIT_DIRS`) are reused, not re-derived,
+when writing the final `data.yaml` fed to `model.train()`/`model.val()`, so
+training can't silently point at empty directories either. While fixing
+this, a related bug was also found and fixed in the shared
+"sample predictions on unseen images" cell (used by all three notebooks):
+a full path expression was being `repr()`-quoted into a literal string
+instead of evaluated as code, so `glob.glob()` was searching for a file
+literally named `"os.path.join(...)"` and always found zero images.
+
 ### Class-name normalization
 
 Per-dataset public listings show **exactly one class per dataset**, already
