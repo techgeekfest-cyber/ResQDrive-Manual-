@@ -1,6 +1,7 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
+from fusion.database_fusion import generate_incidents
 from pydantic import BaseModel
 from datetime import datetime, timezone
 import shutil
@@ -268,7 +269,27 @@ def get_detections():
             detail=str(e)
         )
 
+@app.get("/incidents")
+def get_incidents():
+    """
+    Generate and return fused hazard incidents
+    from PostgreSQL detections.
+    """
 
+    try:
+        incidents = generate_incidents()
+
+        return {
+            "status": "success",
+            "count": len(incidents),
+            "incidents": incidents
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 # --------------------------------------------------
 # Safe Routing
 # --------------------------------------------------
@@ -283,13 +304,17 @@ def calculate_route(request: RouteRequest):
     risk/fusion output.
     """
 
+    incidents = generate_incidents()
+
     hazards = [
         {
-            "hazard_type": "flood",
-            "latitude": 17.390801,
-            "longitude": 78.489109,
-            "risk_level": "HIGH"
+            "hazard_type": incident["hazard_type"],
+            "latitude": incident["latitude"],
+            "longitude": incident["longitude"],
+            "risk_level": incident["risk_level"]
         }
+        for incident in incidents
+        if incident["risk_level"] in ["HIGH", "CRITICAL"]
     ]
 
     try:
