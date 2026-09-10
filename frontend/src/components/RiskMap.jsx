@@ -1,4 +1,5 @@
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { useEffect } from "react";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -47,7 +48,38 @@ function formatDateTime(value) {
   return date.toLocaleString();
 }
 
-function RiskMap({ incidents }) {
+function MapSync({ incidents, selectedIncidentId }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!selectedIncidentId) {
+      return;
+    }
+
+    const selectedIncident = incidents.find(
+      (incident) => incident.incident_id === selectedIncidentId
+    );
+
+    if (!selectedIncident) {
+      return;
+    }
+
+    const latitude = Number(selectedIncident.latitude);
+    const longitude = Number(selectedIncident.longitude);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return;
+    }
+
+    map.flyTo([latitude, longitude], 16, {
+      duration: 1,
+    });
+  }, [map, incidents, selectedIncidentId]);
+
+  return null;
+}
+
+function RiskMap({ incidents, selectedIncidentId }) {
   const defaultCenter = [17.385, 78.4867];
 
   return (
@@ -60,6 +92,11 @@ function RiskMap({ incidents }) {
       <TileLayer
         attribution="&copy; OpenStreetMap contributors"
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+
+      <MapSync
+        incidents={incidents}
+        selectedIncidentId={selectedIncidentId}
       />
 
       {incidents.map((incident) => (
