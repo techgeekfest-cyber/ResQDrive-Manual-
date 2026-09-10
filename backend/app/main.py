@@ -6,16 +6,11 @@ from datetime import datetime, timezone
 import shutil
 import uuid
 
+from sqlalchemy import text
+
 from backend.app.services.inference_service import detect_hazards
 from routing.safe_route import calculate_safe_route
-
-
-# --------------------------------------------------
-# Temporary detection storage
-# This will later be replaced by PostgreSQL/PostGIS
-# --------------------------------------------------
-
-detections_store = []
+from db.database import engine
 
 
 # --------------------------------------------------
@@ -31,8 +26,6 @@ app = FastAPI(
 
 # --------------------------------------------------
 # CORS
-# Allows frontend applications to communicate
-# with the FastAPI backend.
 # --------------------------------------------------
 
 app.add_middleware(
@@ -81,7 +74,7 @@ async def detect(
     """
     Upload an image and detect ResQDrive hazards.
 
-    The request can also contain vehicle and GPS information.
+    Detection results are stored in PostgreSQL/PostGIS.
     """
 
     # Create temporary upload directory
@@ -97,39 +90,103 @@ async def detect(
         shutil.copyfileobj(file.file, buffer)
 
     try:
+
+        # --------------------------------------------------
         # Run Phase 2 YOLO inference
+        # --------------------------------------------------
+
         detections = detect_hazards(str(file_path))
 
-        # Current UTC timestamp
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp = datetime.now(timezone.utc)
 
-        # Convert Phase 2 detections into
-        # ResQDrive detection records
         formatted_detections = []
 
-        for detection in detections:
+        # --------------------------------------------------
+        # Store every detection in PostgreSQL
+        # --------------------------------------------------
 
-            x1, y1, x2, y2 = detection["bounding_box"]
+        with engine.begin() as connection:
 
-            formatted_detections.append({
-                "detection_id": str(uuid.uuid4()),
-                "vehicle_id": vehicle_id,
-                "hazard_type": detection["hazard"],
-                "confidence": detection["confidence"],
-                "bbox": {
+            for detection in detections:
+
+                x1, y1, x2, y2 = detection["bounding_box"]
+
+                detection_id = uuid.uuid4()
+
+                # Bounding box stored as JSON
+                bbox = {
                     "x1": x1,
                     "y1": y1,
                     "x2": x2,
                     "y2": y2
-                },
-                "latitude": latitude,
-                "longitude": longitude,
-                "timestamp": timestamp,
-                "source": "camera"
-            })
+                }
 
-        # Store detections temporarily
-        detections_store.extend(formatted_detections)
+                # Insert detection into PostgreSQL
+                connection.execute(
+                    text("""
+                        INSERT INTO detections (
+                            detection_id,
+                            vehicle_id,
+                            hazard_type,
+                            confidence,
+                            bbox,
+                            latitude,
+                            longitude,
+                            location,
+                            timestamp,
+                            source
+                        )
+                        VALUES (
+                            :detection_id,
+                            :vehicle_id,
+                            :hazard_type,
+                            :confidence,
+                            CAST(:bbox AS JSONB),
+                            :latitude,
+                            :longitude,
+
+                            CASE
+                                WHEN :latitude IS NOT NULL
+                                 AND :longitude IS NOT NULL
+                                THEN ST_SetSRID(
+                                    ST_MakePoint(
+                                        :longitude,
+                                        :latitude
+                                    ),
+                                    4326
+                                )::geography
+                                ELSE NULL
+                            END,
+
+                            :timestamp,
+                            :source
+                        )
+                    """),
+                    {
+                        "detection_id": detection_id,
+                        "vehicle_id": vehicle_id,
+                        "hazard_type": detection["hazard"],
+                        "confidence": detection["confidence"],
+                        "bbox": str(bbox).replace("'", '"'),
+                        "latitude": latitude,
+                        "longitude": longitude,
+                        "timestamp": timestamp,
+                        "source": "camera"
+                    }
+                )
+
+                # Response object
+                formatted_detections.append({
+                    "detection_id": str(detection_id),
+                    "vehicle_id": vehicle_id,
+                    "hazard_type": detection["hazard"],
+                    "confidence": detection["confidence"],
+                    "bbox": bbox,
+                    "latitude": latitude,
+                    "longitude": longitude,
+                    "timestamp": timestamp.isoformat(),
+                    "source": "camera"
+                })
 
         return {
             "status": "success",
@@ -159,14 +216,57 @@ async def detect(
 @app.get("/detections")
 def get_detections():
     """
-    Return all detections received since
-    the server started.
+    Return detections stored in PostgreSQL.
     """
 
-    return {
-        "count": len(detections_store),
-        "detections": detections_store
-    }
+    try:
+
+        with engine.connect() as connection:
+
+            result = connection.execute(
+                text("""
+                    SELECT
+                        detection_id,
+                        vehicle_id,
+                        hazard_type,
+                        confidence,
+                        bbox,
+                        latitude,
+                        longitude,
+                        timestamp,
+                        source
+                    FROM detections
+                    ORDER BY timestamp DESC
+                """)
+            )
+
+            detections = []
+
+            for row in result:
+
+                detections.append({
+                    "detection_id": str(row.detection_id),
+                    "vehicle_id": row.vehicle_id,
+                    "hazard_type": row.hazard_type,
+                    "confidence": row.confidence,
+                    "bbox": row.bbox,
+                    "latitude": row.latitude,
+                    "longitude": row.longitude,
+                    "timestamp": row.timestamp.isoformat(),
+                    "source": row.source
+                })
+
+        return {
+            "count": len(detections),
+            "detections": detections
+        }
+
+    except Exception as e:
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
 
 # --------------------------------------------------
@@ -183,11 +283,6 @@ def calculate_route(request: RouteRequest):
     risk/fusion output.
     """
 
-    # --------------------------------------------------
-    # Temporary hazard data
-    # This is only for Phase 7 testing.
-    # --------------------------------------------------
-
     hazards = [
         {
             "hazard_type": "flood",
@@ -199,7 +294,6 @@ def calculate_route(request: RouteRequest):
 
     try:
 
-        # Calculate safe route
         result = calculate_safe_route(
             request.start_latitude,
             request.start_longitude,
