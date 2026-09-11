@@ -34,3 +34,10 @@ class Detection(Base):
         String(50),
         default="camera"
     )
+
+class IncidentStatus(Base):
+    __tablename__ = "incident_status"
+
+    incident_id = Column(String(100), primary_key=True)
+    status = Column(String(30), nullable=False, default="NEW")
+    updated_at = Column(DateTime(timezone=True), nullable=False)

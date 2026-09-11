@@ -20,3 +20,7 @@ class DetectionResponse(BaseModel):
     longitude: Optional[float] = None
     timestamp: str
     source: str = "camera"
+
+
+class IncidentStatusUpdate(BaseModel):
+    status: str
