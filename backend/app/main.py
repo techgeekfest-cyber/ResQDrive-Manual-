@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 from fusion.database_fusion import generate_incidents
 from pydantic import BaseModel
+from backend.app.schemas import IncidentStatusUpdate
 from datetime import datetime, timezone
 import shutil
 import uuid
@@ -274,15 +275,102 @@ def get_incidents():
     """
     Generate and return fused hazard incidents
     from PostgreSQL detections.
+
+    Previously saved incident statuses are restored
+    from the incident_status table.
     """
 
     try:
         incidents = generate_incidents()
 
+        with engine.connect() as connection:
+            result = connection.execute(
+                text("""
+                    SELECT incident_id, status
+                    FROM incident_status
+                """)
+            )
+
+            saved_statuses = {
+                row.incident_id: row.status
+                for row in result
+            }
+
+        for incident in incidents:
+            incident["status"] = saved_statuses.get(
+                incident["incident_id"],
+                "NEW"
+            )
+
         return {
             "status": "success",
             "count": len(incidents),
             "incidents": incidents
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+# --------------------------------------------------
+# Incident Status Update
+# --------------------------------------------------
+
+@app.patch("/incidents/{incident_id}/status")
+def update_incident_status(
+    incident_id: str,
+    status_update: IncidentStatusUpdate
+):
+    """
+    Update and persist the operational status of an incident.
+    """
+
+    allowed_statuses = {
+        "NEW",
+        "ACKNOWLEDGED",
+        "DISPATCHED",
+        "RESOLVED",
+        "DISMISSED"
+    }
+
+    new_status = status_update.status.upper()
+
+    if new_status not in allowed_statuses:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid status. Allowed values: {sorted(allowed_statuses)}"
+        )
+
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text("""
+                    INSERT INTO incident_status (
+                        incident_id,
+                        status,
+                        updated_at
+                    )
+                    VALUES (
+                        :incident_id,
+                        :status,
+                        NOW()
+                    )
+                    ON CONFLICT (incident_id)
+                    DO UPDATE SET
+                        status = EXCLUDED.status,
+                        updated_at = NOW()
+                """),
+                {
+                    "incident_id": incident_id,
+                    "status": new_status
+                }
+            )
+
+        return {
+            "status": "success",
+            "incident_id": incident_id,
+            "incident_status": new_status
         }
 
     except Exception as e:

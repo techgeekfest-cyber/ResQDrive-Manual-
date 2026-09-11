@@ -1,6 +1,7 @@
-﻿import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import RiskMap from "./components/RiskMap";
 import DashboardSummary from "./components/DashboardSummary";
+import DriverView from "./components/DriverView";
 import {
   fetchIncidents,
   fetchDetections,
@@ -45,6 +46,8 @@ function isIncidentStale(incident) {
 }
 
 function App() {
+  const [viewMode, setViewMode] = useState("authority");
+
   const [incidents, setIncidents] = useState([]);
   const [detections, setDetections] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -95,7 +98,8 @@ function App() {
     const filtered = incidents.filter((incident) => {
       const hazardMatches =
         hazardFilter === "ALL" ||
-        incident.hazard_type?.toLowerCase() === hazardFilter.toLowerCase();
+        incident.hazard_type?.toLowerCase() ===
+          hazardFilter.toLowerCase();
 
       const riskMatches =
         riskFilter === "ALL" ||
@@ -159,11 +163,17 @@ function App() {
 
       if (typeof valueA === "string") {
         const comparison = valueA.localeCompare(valueB);
-        return sortDirection === "asc" ? comparison : -comparison;
+
+        return sortDirection === "asc"
+          ? comparison
+          : -comparison;
       }
 
       const comparison = valueA - valueB;
-      return sortDirection === "asc" ? comparison : -comparison;
+
+      return sortDirection === "asc"
+        ? comparison
+        : -comparison;
     });
   }, [
     incidents,
@@ -194,10 +204,10 @@ function App() {
 
   function sortIndicator(field) {
     if (sortField !== field) {
-      return "?";
+      return "";
     }
 
-    return sortDirection === "asc" ? "?" : "?";
+    return sortDirection === "asc" ? "↑" : "↓";
   }
 
   async function handleStatusChange(incidentId, newStatus) {
@@ -209,7 +219,10 @@ function App() {
       await loadDashboardData();
     } catch (err) {
       console.error(err);
-      setError(err.message || "Unable to update incident status.");
+
+      setError(
+        err.message || "Unable to update incident status."
+      );
     } finally {
       setUpdatingIncidentId(null);
     }
@@ -219,6 +232,14 @@ function App() {
     (incident) => incident.incident_id === selectedIncidentId
   );
 
+  if (viewMode === "driver") {
+    return (
+      <DriverView
+        onBackToAuthority={() => setViewMode("authority")}
+      />
+    );
+  }
+
   return (
     <div className="app">
       <header className="app-header">
@@ -227,9 +248,22 @@ function App() {
           <p>Authority Operations Dashboard</p>
         </div>
 
-        <button onClick={loadDashboardData}>
-          Refresh
-        </button>
+        <div className="header-actions">
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => setViewMode("driver")}
+          >
+            Driver View
+          </button>
+
+          <button
+            type="button"
+            onClick={loadDashboardData}
+          >
+            Refresh
+          </button>
+        </div>
       </header>
 
       <DashboardSummary
@@ -244,7 +278,9 @@ function App() {
           <select
             id="hazard-filter"
             value={hazardFilter}
-            onChange={(event) => setHazardFilter(event.target.value)}
+            onChange={(event) =>
+              setHazardFilter(event.target.value)
+            }
           >
             <option value="ALL">All hazards</option>
             <option value="flood">Flood</option>
@@ -259,7 +295,9 @@ function App() {
           <select
             id="risk-filter"
             value={riskFilter}
-            onChange={(event) => setRiskFilter(event.target.value)}
+            onChange={(event) =>
+              setRiskFilter(event.target.value)
+            }
           >
             <option value="ALL">All levels</option>
             <option value="LOW">LOW</option>
@@ -275,40 +313,59 @@ function App() {
           <select
             id="status-filter"
             value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
+            onChange={(event) =>
+              setStatusFilter(event.target.value)
+            }
           >
             <option value="ALL">All statuses</option>
             <option value="NEW">NEW</option>
-            <option value="ACKNOWLEDGED">ACKNOWLEDGED</option>
-            <option value="DISPATCHED">DISPATCHED</option>
+            <option value="ACKNOWLEDGED">
+              ACKNOWLEDGED
+            </option>
+            <option value="DISPATCHED">
+              DISPATCHED
+            </option>
             <option value="RESOLVED">RESOLVED</option>
             <option value="DISMISSED">DISMISSED</option>
           </select>
         </div>
 
         <div className="filter-group">
-          <label htmlFor="freshness-filter">Freshness</label>
+          <label htmlFor="freshness-filter">
+            Freshness
+          </label>
 
           <select
             id="freshness-filter"
             value={freshnessFilter}
-            onChange={(event) => setFreshnessFilter(event.target.value)}
+            onChange={(event) =>
+              setFreshnessFilter(event.target.value)
+            }
           >
             <option value="ALL">All time</option>
             <option value="15">Last 15 minutes</option>
             <option value="60">Last 1 hour</option>
             <option value="360">Last 6 hours</option>
-            <option value="1440">Last 24 hours</option>
+            <option value="1440">
+              Last 24 hours
+            </option>
           </select>
         </div>
 
-        <div className={`data-status ${stale ? "stale" : "live"}`}>
+        <div
+          className={
+            stale
+              ? "data-status stale"
+              : "data-status live"
+          }
+        >
           <span className="status-dot"></span>
           {stale ? "Data may be stale" : "Live data"}
         </div>
 
         <div className="incident-count">
-          Showing {filteredIncidents.length} of {incidents.length} incidents
+          Showing {filteredIncidents.length} of{" "}
+          {incidents.length} incidents
         </div>
       </section>
 
@@ -328,18 +385,23 @@ function App() {
         <div className="section-header">
           <div>
             <h2>Incident Operations</h2>
+
             <p>
               {activeIncidents.length} active incident
-              {activeIncidents.length === 1 ? "" : "s"}
+              {activeIncidents.length === 1
+                ? ""
+                : "s"}
             </p>
           </div>
         </div>
 
-        {!loading && !error && filteredIncidents.length === 0 && (
-          <div className="status">
-            No incidents match the selected filters.
-          </div>
-        )}
+        {!loading &&
+          !error &&
+          filteredIncidents.length === 0 && (
+            <div className="status">
+              No incidents match the selected filters.
+            </div>
+          )}
 
         {filteredIncidents.length > 0 && (
           <div className="incident-table-wrapper">
@@ -349,7 +411,10 @@ function App() {
                   <th>
                     <button
                       className="sort-button"
-                      onClick={() => handleSort("hazard_type")}
+                      type="button"
+                      onClick={() =>
+                        handleSort("hazard_type")
+                      }
                     >
                       Hazard {sortIndicator("hazard_type")}
                     </button>
@@ -358,7 +423,10 @@ function App() {
                   <th>
                     <button
                       className="sort-button"
-                      onClick={() => handleSort("risk_level")}
+                      type="button"
+                      onClick={() =>
+                        handleSort("risk_level")
+                      }
                     >
                       Risk {sortIndicator("risk_level")}
                     </button>
@@ -367,38 +435,53 @@ function App() {
                   <th>
                     <button
                       className="sort-button"
+                      type="button"
                       onClick={() =>
                         handleSort("confidence_summary")
                       }
                     >
-                      Confidence {sortIndicator("confidence_summary")}
+                      Confidence{" "}
+                      {sortIndicator("confidence_summary")}
                     </button>
                   </th>
 
                   <th>
                     <button
                       className="sort-button"
-                      onClick={() => handleSort("evidence_count")}
-                    >
-                      Evidence {sortIndicator("evidence_count")}
-                    </button>
-                  </th>
-
-                  <th>
-                    <button
-                      className="sort-button"
+                      type="button"
                       onClick={() =>
-                        handleSort("unique_vehicle_count")
+                        handleSort("evidence_count")
                       }
                     >
-                      Vehicles {sortIndicator("unique_vehicle_count")}
+                      Evidence{" "}
+                      {sortIndicator("evidence_count")}
                     </button>
                   </th>
 
                   <th>
                     <button
                       className="sort-button"
-                      onClick={() => handleSort("status")}
+                      type="button"
+                      onClick={() =>
+                        handleSort(
+                          "unique_vehicle_count"
+                        )
+                      }
+                    >
+                      Vehicles{" "}
+                      {sortIndicator(
+                        "unique_vehicle_count"
+                      )}
+                    </button>
+                  </th>
+
+                  <th>
+                    <button
+                      className="sort-button"
+                      type="button"
+                      onClick={() =>
+                        handleSort("status")
+                      }
                     >
                       Status {sortIndicator("status")}
                     </button>
@@ -410,26 +493,35 @@ function App() {
 
               <tbody>
                 {filteredIncidents.map((incident) => {
-                  const incidentStale = isIncidentStale(incident);
+                  const incidentStale =
+                    isIncidentStale(incident);
 
                   return (
                     <tr
                       key={incident.incident_id}
                       className={[
-                        selectedIncidentId === incident.incident_id
+                        selectedIncidentId ===
+                        incident.incident_id
                           ? "selected-incident"
                           : "",
-                        incidentStale ? "stale-incident" : "",
+                        incidentStale
+                          ? "stale-incident"
+                          : "",
                       ]
                         .filter(Boolean)
                         .join(" ")}
                       onClick={() =>
-                        setSelectedIncidentId(incident.incident_id)
+                        setSelectedIncidentId(
+                          incident.incident_id
+                        )
                       }
                     >
                       <td>
                         <strong>
-                          {incident.hazard_type?.replace("_", " ")}
+                          {incident.hazard_type?.replace(
+                            "_",
+                            " "
+                          )}
                         </strong>
 
                         {incidentStale && (
@@ -441,7 +533,11 @@ function App() {
 
                       <td>
                         <span
-                          className={`risk-badge ${incident.risk_level?.toLowerCase()}`}
+                          className={
+                            "risk-badge " +
+                            (incident.risk_level?.toLowerCase() ||
+                              "")
+                          }
                         >
                           {incident.risk_level}
                         </span>
@@ -449,22 +545,32 @@ function App() {
 
                       <td>
                         {Math.round(
-                          Number(incident.confidence_summary || 0) * 100
+                          Number(
+                            incident.confidence_summary ||
+                              0
+                          ) * 100
                         )}
                         %
                       </td>
 
-                      <td>{incident.evidence_count}</td>
+                      <td>
+                        {incident.evidence_count}
+                      </td>
 
-                      <td>{incident.unique_vehicle_count}</td>
+                      <td>
+                        {incident.unique_vehicle_count}
+                      </td>
 
                       <td
-                        onClick={(event) => event.stopPropagation()}
+                        onClick={(event) =>
+                          event.stopPropagation()
+                        }
                       >
                         <select
                           value={incident.status}
                           disabled={
-                            updatingIncidentId === incident.incident_id
+                            updatingIncidentId ===
+                            incident.incident_id
                           }
                           onChange={(event) =>
                             handleStatusChange(
@@ -473,21 +579,36 @@ function App() {
                             )
                           }
                         >
-                          <option value="NEW">NEW</option>
+                          <option value="NEW">
+                            NEW
+                          </option>
+
                           <option value="ACKNOWLEDGED">
                             ACKNOWLEDGED
                           </option>
+
                           <option value="DISPATCHED">
                             DISPATCHED
                           </option>
-                          <option value="RESOLVED">RESOLVED</option>
-                          <option value="DISMISSED">DISMISSED</option>
+
+                          <option value="RESOLVED">
+                            RESOLVED
+                          </option>
+
+                          <option value="DISMISSED">
+                            DISMISSED
+                          </option>
                         </select>
                       </td>
 
                       <td>
-                        {Number(incident.latitude).toFixed(4)},{" "}
-                        {Number(incident.longitude).toFixed(4)}
+                        {Number(
+                          incident.latitude
+                        ).toFixed(4)}
+                        ,{" "}
+                        {Number(
+                          incident.longitude
+                        ).toFixed(4)}
                       </td>
                     </tr>
                   );
@@ -501,26 +622,35 @@ function App() {
           <div className="selected-incident-panel">
             <div>
               <h3>Incident Evidence Summary</h3>
+
               <p>
-                {selectedIncident.hazard_type?.replace("_", " ")} ·{" "}
-                {selectedIncident.risk_level}
+                {selectedIncident.hazard_type?.replace(
+                  "_",
+                  " "
+                )}{" "}
+                · {selectedIncident.risk_level}
               </p>
             </div>
 
             <div className="evidence-grid">
               <div>
                 <span>Risk score</span>
+
                 <strong>
-                  {Number(selectedIncident.risk_score || 0).toFixed(2)}
+                  {Number(
+                    selectedIncident.risk_score || 0
+                  ).toFixed(2)}
                 </strong>
               </div>
 
               <div>
                 <span>Confidence</span>
+
                 <strong>
                   {Math.round(
                     Number(
-                      selectedIncident.confidence_summary || 0
+                      selectedIncident.confidence_summary ||
+                        0
                     ) * 100
                   )}
                   %
@@ -529,6 +659,7 @@ function App() {
 
               <div>
                 <span>Evidence count</span>
+
                 <strong>
                   {selectedIncident.evidence_count ?? 0}
                 </strong>
@@ -536,21 +667,32 @@ function App() {
 
               <div>
                 <span>Vehicles</span>
+
                 <strong>
-                  {selectedIncident.unique_vehicle_count ?? 0}
+                  {selectedIncident.unique_vehicle_count ??
+                    0}
                 </strong>
               </div>
 
               <div>
                 <span>Status</span>
-                <strong>{selectedIncident.status || "N/A"}</strong>
+
+                <strong>
+                  {selectedIncident.status || "N/A"}
+                </strong>
               </div>
 
               <div>
                 <span>Location</span>
+
                 <strong>
-                  {Number(selectedIncident.latitude).toFixed(4)},{" "}
-                  {Number(selectedIncident.longitude).toFixed(4)}
+                  {Number(
+                    selectedIncident.latitude
+                  ).toFixed(4)}
+                  ,{" "}
+                  {Number(
+                    selectedIncident.longitude
+                  ).toFixed(4)}
                 </strong>
               </div>
             </div>
@@ -569,4 +711,3 @@ function App() {
 }
 
 export default App;
-

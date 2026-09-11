@@ -185,7 +185,12 @@ def fuse_detections(detections):
     ])
 
     return {
-        "incident_id": str(uuid.uuid4()),
+        "incident_id": "incident-" + "-".join(
+            sorted(
+                str(detection.get("detection_id", "unknown"))
+                for detection in detections
+            )
+        ),
         "hazard_type": hazard_type,
         "risk_score": risk_score,
         "risk_level": risk_level,

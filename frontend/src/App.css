@@ -336,3 +336,182 @@
     height: 420px;
   }
 }
+
+/* =========================
+   Phase 9 - Driver View
+   ========================= */
+
+.driver-page {
+  min-height: 100vh;
+  background: #f4f7fb;
+}
+
+.driver-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.driver-panel,
+.driver-results,
+.driver-empty-state,
+.driver-alert {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+}
+
+.route-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 16px;
+  align-items: end;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.form-field label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.form-field input {
+  padding: 11px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 15px;
+}
+
+.route-form button {
+  padding: 11px 18px;
+  border: none;
+  border-radius: 8px;
+  background: #1d4ed8;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.route-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.mock-location-note {
+  margin-top: 18px;
+  padding: 12px 14px;
+  background: #eef4ff;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.route-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 20px;
+}
+
+.route-metrics {
+  display: flex;
+  gap: 28px;
+}
+
+.route-metrics div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.route-metrics span {
+  font-size: 13px;
+  color: #64748b;
+}
+
+.route-metrics strong {
+  font-size: 22px;
+}
+
+.driver-alert {
+  border-left: 5px solid #2563eb;
+}
+
+.warning-alert {
+  border-left-color: #dc2626;
+  background: #fff5f5;
+}
+
+.success-alert {
+  border-left-color: #16a34a;
+  background: #f0fdf4;
+}
+
+.error-alert {
+  border-left-color: #dc2626;
+  background: #fff5f5;
+}
+
+.driver-map {
+  margin-top: 20px;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.driver-empty-state {
+  text-align: center;
+  padding: 50px 24px;
+}
+
+@media (max-width: 800px) {
+  .route-form {
+    grid-template-columns: 1fr;
+  }
+
+  .route-summary {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .route-metrics {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+/* Phase 9 layout fix */
+.driver-page {
+  width: 100%;
+  min-height: 100vh;
+}
+
+.driver-content {
+  width: min(1400px, calc(100% - 48px));
+  max-width: none;
+  margin: 0 auto;
+  padding: 24px;
+  box-sizing: border-box;
+}
+
+.driver-panel,
+.driver-results,
+.driver-empty-state,
+.driver-alert {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.driver-map {
+  width: 100%;
+}
+
+.driver-map .leaflet-container {
+  width: 100%;
+  min-height: 500px;
+}
